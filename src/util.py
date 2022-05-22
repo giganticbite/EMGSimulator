@@ -23,12 +23,16 @@ keypoint_ids = [
     (15, 17)
 ]
 
-def get_valid_keypoints(keypoint_ids, skeleton, confidence_threshold):
+
+def get_valid_keypoints(keypoint_ids, skeleton, confidence_threshold, valid_joints):
     keypoints = [
-        (tuple(map(int, skeleton.joints[i])), tuple(map(int, skeleton.joints[v])))
+        (tuple(map(int, skeleton.joints[i])),
+         tuple(map(int, skeleton.joints[v])))
         for (i, v) in keypoint_ids
         if skeleton.confidences[i] >= confidence_threshold
         and skeleton.confidences[v] >= confidence_threshold
+        and i in valid_joints
+        and v in valid_joints
     ]
     valid_keypoints = [
         keypoint
@@ -38,11 +42,13 @@ def get_valid_keypoints(keypoint_ids, skeleton, confidence_threshold):
     return valid_keypoints
 
 
-def render_result(skeletons, img, confidence_threshold):
+def render_result(skeletons, img, confidence_threshold, valid_joints):
     skeleton_color = (100, 254, 213)
     for index, skeleton in enumerate(skeletons):
-        keypoints = get_valid_keypoints(keypoint_ids, skeleton, confidence_threshold)
+        keypoints = get_valid_keypoints(
+            keypoint_ids, skeleton, confidence_threshold, valid_joints)
         for keypoint in keypoints:
+
             cv2.line(
                 img, keypoint[0], keypoint[1], skeleton_color, thickness=2, lineType=cv2.LINE_AA
             )
@@ -59,7 +65,8 @@ def render_ids(skeletons, img, thickness=5):
             x, y = tuple(map(int, joint))
             if x < 0 or y < 0:
                 continue
-            cv2.putText(img, f'{skeleton.id}', (x, y-30), cv2.FONT_HERSHEY_SIMPLEX, 5, text_color, thickness)
+            cv2.putText(img, f'{skeleton.id}', (x, y-30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 5, text_color, thickness)
             break
 
 

@@ -116,7 +116,6 @@ def convertValueByByte(packet, startIdx, length):
 #
 def getSendCommand(sendCommandId, targetSenssorModuleId):
 
-    # measureMode = 0x34
     measureMode = 0x55
 
     # コマンドIDに対応したパケットコマンドを返す
@@ -286,7 +285,7 @@ def clamp(num, min_value, max_value):
 #
 
 
-def getSendCommand_SetTimer(targetSenssorModuleId, hours, minutes, seconds):
+def getSendCommand_SetTimer(targetSenssorModuleId, hours, minutes, seconds, calibration_time):
     packet = bytearray()
     packet.append(0x55)
     packet.append(0x55)
@@ -295,6 +294,19 @@ def getSendCommand_SetTimer(targetSenssorModuleId, hours, minutes, seconds):
 
     packet += struct.pack('B', targetSenssorModuleId)
     packet += struct.pack('B', DEF_SENDCOMMAND_ID_SETTIMER)
+
+    hours = clamp(hours, 0, 59)
+    minutes = clamp(minutes, 0, 59)
+    seconds = clamp(seconds, 0, 59)
+
+    # add time for calibration
+    seconds += calibration_time
+    if seconds > 59:
+        seconds = seconds % 60
+        minutes += 1
+    if minutes > 59:
+        minutes = minutes % 60
+        hours += 1
 
     packet += struct.pack('B', clamp(hours, 0, 59))
     packet += struct.pack('B', clamp(minutes, 0, 59))
