@@ -69,12 +69,6 @@ class LogText(object):
 
 
 
-# 半円の向き(筋肉のついている側)
-
-
-class CircleDirection(Enum):
-    FRONT = 0
-    BACK = 1
 
 # 身体の向き(自分から見て)
 
@@ -85,17 +79,7 @@ class BodyDirection(Enum):
     NONE = 2
 
 
-class SensorInfo:
-    def __init__(self, max_radius_denomitor, line_startpoint, line_endpoint, circle_direction):
-        self.max_radius_denomitor = max_radius_denomitor
 
-        self.line_startpoint = line_startpoint
-        self.line_endpoint = line_endpoint
-
-        self.emg_data_max = 0.0
-        self.emg_data = 0.0
-        self.emg_data_sequence = []
-        self.circle_direction = circle_direction
 
 
 class EMGData:
@@ -129,31 +113,31 @@ class EMGData:
         self.emg_datalist = []
 
         # 1:大殿筋, 体幹長の1/2
-        # self.emg_datalist.append(SensorInfo(
-        #     2, 12, 24, CircleDirection.BACK))
+        # self.emg_datalist.append(subframe.SensorInfo(
+        #     2, 12, 24, subframe.CircleDirection.BACK))
 
         # # dummy
-        # self.emg_datalist.append(SensorInfo(
-        #     2, 12, 24, CircleDirection.FRONT))
+        # self.emg_datalist.append(subframe.SensorInfo(
+        #     2, 12, 24, subframe.CircleDirection.FRONT))
 
         # # 2:大腿二頭筋, 大腿長の1/3
-        # self.emg_datalist.append(SensorInfo(
-        #     3, 24, 26, CircleDirection.BACK))
+        # self.emg_datalist.append(subframe.SensorInfo(
+        #     3, 24, 26, subframe.CircleDirection.BACK))
 
         # 3:腓腹筋, 下腿長の1/3
-        self.emg_datalist.append(SensorInfo(
-            1, 26, 28, CircleDirection.BACK))
+        self.emg_datalist.append(subframe.SensorInfo(
+            1, 26, 28, subframe.CircleDirection.BACK))
 
         # # 4:内側広筋, 大腿長の1/3
-        # self.emg_datalist.append(SensorInfo(
-        #     3, 24, 26, CircleDirection.FRONT))
+        # self.emg_datalist.append(subframe.SensorInfo(
+        #     3, 24, 26, subframe.CircleDirection.FRONT))
 
         # 5:前脛骨筋, 下腿長の1/3
-        self.emg_datalist.append(SensorInfo(
-            1, 26, 28, CircleDirection.FRONT))
+        self.emg_datalist.append(subframe.SensorInfo(
+            1, 26, 28, subframe.CircleDirection.FRONT))
 
-        for i in range(SENSOR_CONNECTION_MAX-5):
-            self.emg_datalist.append(SensorInfo(1, 0, 0, True))
+        for i in range(SENSOR_CONNECTION_MAX-2):
+            self.emg_datalist.append(subframe.SensorInfo(1, 0, 0, True))
 
         # ポート番号
         self.StringPortName = "COM3"
@@ -165,9 +149,13 @@ class EMGData:
 
     def GetSetTime(self):
         return self.hours, self.minutes, self.seconds
-    
+
     def GetSetColor(self):
         return self.circlecolor_front, self.circlecolor_back
+
+    def GetSetRID(self, idx):
+        emg_data = self.emg_datalist[idx]
+        return emg_data.max_radius_denominator, emg_data.line_startpoint, emg_data.line_endpoint, emg_data.circle_direction
 
 
 class MyFrame(wx.Frame):
@@ -548,7 +536,6 @@ class MyApp(wx.App):
             if emg_data.emg_data_max != 0:
                 radius_ratio = emg_data_past/emg_data.emg_data_max
 
-
             if poselandmarks == None:
                 return
 
@@ -577,19 +564,19 @@ class MyApp(wx.App):
                                landmark_start_x-center[0]) * 180 / np.pi
             radius_max = np.sqrt(
                 pow(landmark_start_x-landmark_end_x, 2.0) +
-                pow(landmark_start_y-landmark_end_y, 2.0)) / (2*emg_data.max_radius_denomitor)
+                pow(landmark_start_y-landmark_end_y, 2.0)) / (2*emg_data.max_radius_denominator)
 
-            if emg_data.circle_direction == CircleDirection.BACK:
+            if emg_data.circle_direction == subframe.CircleDirection.BACK:
                 angle += 180
             color = None
 
             if self.frame.emgdata.body_direction == BodyDirection.RIGHT:
-                if emg_data.circle_direction == CircleDirection.FRONT:
+                if emg_data.circle_direction == subframe.CircleDirection.FRONT:
                     color = self.frame.emgdata.circlecolor_back
                 else:
                     color = self.frame.emgdata.circlecolor_front
             else:
-                if emg_data.circle_direction == CircleDirection.FRONT:
+                if emg_data.circle_direction == subframe.CircleDirection.FRONT:
                     color = self.frame.emgdata.circlecolor_back
                 else:
                     color = self.frame.emgdata.circlecolor_front
@@ -636,17 +623,17 @@ class MyApp(wx.App):
         #         pow(landmark_start_x-landmark_end_x, 2.0) +
         #         pow(landmark_start_y-landmark_end_y, 2.0)) / (2*emg_data.max_radius_denomitor)
 
-        #     if emg_data.circle_direction == CircleDirection.BACK:
+        #     if emg_data.circle_direction == subframe.CircleDirection.BACK:
         #         angle += 180
         #     color = None
 
         #     if self.frame.emgdata.body_direction == BodyDirection.RIGHT:
-        #         if emg_data.circle_direction == CircleDirection.FRONT:
+        #         if emg_data.circle_direction == subframe.CircleDirection.FRONT:
         #             color = self.frame.emgdata.circlecolor_back
         #         else:
         #             color = self.frame.emgdata.circlecolor_front
         #     else:
-        #         if emg_data.circle_direction == CircleDirection.FRONT:
+        #         if emg_data.circle_direction == subframe.CircleDirection.FRONT:
         #             color = self.frame.emgdata.circlecolor_back
         #         else:
         #             color = self.frame.emgdata.circlecolor_front

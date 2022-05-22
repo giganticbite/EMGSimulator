@@ -12,6 +12,29 @@ class CircleColorID(Enum):
 #     BLUE = 2
 # Config Window
 
+# 半円の向き(筋肉のついている側)
+
+
+class CircleDirection(Enum):
+    FRONT = 0
+    BACK = 1
+
+
+SENSOR_CONNECTION_MAX = 15
+
+
+class SensorInfo:
+    def __init__(self, max_radius_denominator, line_startpoint, line_endpoint, circle_direction):
+        self.max_radius_denominator = max_radius_denominator
+
+        self.line_startpoint = line_startpoint
+        self.line_endpoint = line_endpoint
+
+        self.emg_data_max = 0.0
+        self.emg_data = 0.0
+        self.emg_data_sequence = []
+        self.circle_direction = circle_direction
+
 
 class SubFrame(wx.Dialog):
     def __init__(self, SerialPort, emgdata):
@@ -51,7 +74,6 @@ class SubFrame(wx.Dialog):
     #         > Radius scale
     #         > Magnification scale
     ##############################
-
     def SetWindowStyle(self):
         self.panel = wx.Panel(self, wx.ID_ANY)
         sizer_whole = wx.BoxSizer(wx.VERTICAL)
@@ -66,6 +88,7 @@ class SubFrame(wx.Dialog):
         #############################
         sizer_ul = wx.BoxSizer(wx.VERTICAL)
         sizer_upper.Add(sizer_ul, 1, wx.EXPAND, 0)
+
         s_text_timerdesc = wx.StaticText(self.panel, wx.ID_ANY, '計測時間設定')
         sizer_ul.Add(s_text_timerdesc, flag=wx.ALIGN_CENTER | wx.TOP)
 
@@ -75,14 +98,12 @@ class SubFrame(wx.Dialog):
         sizer_hh = wx.BoxSizer(wx.VERTICAL)
         sizer_mm = wx.BoxSizer(wx.VERTICAL)
         sizer_ss = wx.BoxSizer(wx.VERTICAL)
-
         sizer_timer.Add(sizer_hh, 1, wx.EXPAND, 0)
         sizer_timer.Add(sizer_mm, 1, wx.EXPAND, 0)
         sizer_timer.Add(sizer_ss, 1, wx.EXPAND, 0)
 
         # get times set before or default
         hours, minutes, seconds = self.emgdata.GetSetTime()
-
         s_text_hh = wx.StaticText(self.panel, wx.ID_ANY, 'hh(0-59)')
         self.spinctrl_h = wx.SpinCtrl(
             self.panel, wx.ID_ANY, value=str(hours), max=59)
@@ -106,6 +127,7 @@ class SubFrame(wx.Dialog):
         #############################
         sizer_ur = wx.BoxSizer(wx.VERTICAL)
         sizer_upper.Add(sizer_ur, 1, wx.EXPAND, 0)
+
         s_text_modedesc = wx.StaticText(
             self.panel, wx.ID_ANY, '計測モード設定(同時使用可能ID)')
         sizer_ur.Add(s_text_modedesc, flag=wx.ALIGN_CENTER | wx.TOP)
@@ -140,9 +162,10 @@ class SubFrame(wx.Dialog):
 
         sizer_ll = wx.BoxSizer(wx.VERTICAL)
         sizer_lower.Add(sizer_ll, 1, wx.EXPAND, 0)
+
         s_text_ccdesc = wx.StaticText(
             self.panel, wx.ID_ANY, '半円の色')
-        sizer_ll.Add(s_text_ccdesc, flag=wx.ALIGN_CENTER | wx.TOP)
+        sizer_ll.Add(s_text_ccdesc, flag=wx.ALIGN_CENTER | wx.TOP, border=30)
 
         # front color
         sizer_front_color = wx.BoxSizer(wx.HORIZONTAL)
@@ -157,7 +180,6 @@ class SubFrame(wx.Dialog):
                      wx.TOP, border=20)
         self.button_back_color = wx.Button(self.panel, wx.ID_ANY, u"後側の色")
         sizer_back_color.Add(self.button_back_color, 1, wx.EXPAND, 0)
-
         self.Bind(wx.EVT_BUTTON, self.OnButtonSelectColor(is_front=True),
                   self.button_front_color)
         self.Bind(wx.EVT_BUTTON, self.OnButtonSelectColor(is_front=False),
@@ -177,38 +199,16 @@ class SubFrame(wx.Dialog):
         #############################
         sizer_lr = wx.BoxSizer(wx.VERTICAL)
         sizer_lower.Add(sizer_lr, 1, wx.EXPAND, 0)
+
         s_text_csdesc = wx.StaticText(
-            self.panel, wx.ID_ANY, '円のサイズ')
-        sizer_lr.Add(s_text_csdesc, flag=wx.ALIGN_CENTER | wx.TOP)
+            self.panel, wx.ID_ANY, '半円のサイズとID')
+        sizer_lr.Add(s_text_csdesc, flag=wx.ALIGN_CENTER | wx.TOP, border=30)
 
-        sizer_circle_size = wx.BoxSizer(wx.HORIZONTAL)
-        sizer_lr.Add(sizer_circle_size,
-                     flag=wx.ALIGN_CENTER | wx.TOP, border=20)
-
-        sizer_radius_scale = wx.BoxSizer(wx.VERTICAL)
-        sizer_magnification_scale = wx.BoxSizer(wx.VERTICAL)
-        sizer_circle_size.Add(sizer_radius_scale, 1, wx.EXPAND, 0)
-        sizer_circle_size.Add(sizer_magnification_scale, 1, wx.EXPAND, 0)
-
-        s_text_rs = wx.StaticText(self.panel, wx.ID_ANY, 'ARV->半径の変換スケール')
-        sizer_radius_scale.Add(s_text_rs, 1, wx.EXPAND, 0)
-
-        sizer_rs_radio = wx.BoxSizer(wx.HORIZONTAL)
-        sizer_radius_scale.Add(sizer_rs_radio, 1, wx.EXPAND, 0)
-
-        self.RB_Log = wx.RadioButton(
-            self.panel, wx.ID_ANY, '対数', style=wx.RB_GROUP)
-        self.RB_Linear = wx.RadioButton(self.panel, wx.ID_ANY, '線形')
-
-        sizer_rs_radio.Add(self.RB_Log, 1, wx.EXPAND, 0)
-        sizer_rs_radio.Add(self.RB_Linear, 1, wx.EXPAND, 0)
-
-        s_text_ms = wx.StaticText(self.panel, wx.ID_ANY, '円の拡大率')
-        self.spinctrldouble_ms = wx.SpinCtrlDouble(
-            self.panel, wx.ID_ANY, value=str(self.emgdata.magscale), max=100.0, min=1.0)
-        sizer_magnification_scale.Add(s_text_ms, flag=wx.ALIGN_CENTER | wx.TOP)
-        sizer_magnification_scale.Add(
-            self.spinctrldouble_ms, flag=wx.ALIGN_CENTER | wx.TOP)
+        self.button_circle_size_id = wx.Button(self.panel, wx.ID_ANY, u"設定を開く")
+        self.Bind(wx.EVT_BUTTON, self.OnButtonRadiusandID,
+                  self.button_circle_size_id)
+        sizer_lr.Add(self.button_circle_size_id,
+                     flag=wx.ALIGN_CENTER | wx.TOP, border=30)
 
         #############################
         # Lower Buttons
@@ -218,14 +218,11 @@ class SubFrame(wx.Dialog):
 
         self.button_Confirmconfig = wx.Button(self.panel, wx.ID_ANY, "適用")
         self.button_Exit = wx.Button(self.panel, wx.ID_ANY, u"閉じる")
-
         sizer_lowerbutton.Add(self.button_Confirmconfig, 1, 0)
         sizer_lowerbutton.Add(self.button_Exit, 1, 0)
 
         self.panel.SetSizer(sizer_whole)
-
         self.Layout()
-
         self.Bind(wx.EVT_BUTTON, self.OnButtonConfirmConfig,
                   self.button_Confirmconfig)
         self.Bind(wx.EVT_BUTTON, self.OnButtonExit, self.button_Exit)
@@ -275,12 +272,182 @@ class SubFrame(wx.Dialog):
         self.emgdata.circlecolor_front = self.color_front_tmp
         self.emgdata.circlecolor_back = self.color_back_tmp
 
-        # Circle size (magnification scale)
-        self.emgdata.magscale = self.spinctrldouble_ms.GetValue()
+        wx.MessageBox("設定が完了しました", u"設定完了", style=wx.OK)
 
-        print("measuremode: ", self.emgdata.measureMode)
-        print("circlecolor_id: ", self.emgdata.circlecolor_id)
-        print("magscale: ", self.emgdata.magscale)
+    def OnButtonExit(self, event):  # 設定画面を閉じる
+        self.Destroy()
+
+    def ExitHandler(self, event):
+        self.Destroy()
+
+    def OnButtonRadiusandID(self, event):
+        RadiusandID(self.emgdata)
+
+
+class RadiusandID(wx.Dialog):
+    def __init__(self, emgdata):
+        self.emgdata_RID = emgdata
+
+        wx.Dialog.__init__(self, None, -1, "半径とID設定")
+        self.SetSize((800, 900))
+
+        self.SetWindowStyle_RID()
+        self.Bind(wx.EVT_CLOSE, self.ExitHandler)
+
+        self.ShowModal()
+
+    def SetWindowStyle_RID(self):
+        self.panel = wx.Panel(self, wx.ID_ANY)
+        sizer_whole = wx.BoxSizer(wx.VERTICAL)
+
+        sizer_upper = wx.BoxSizer(wx.VERTICAL)
+        sizer_lower = wx.BoxSizer(wx.VERTICAL)
+        sizer_whole.Add(sizer_upper, 1, wx.EXPAND, 0)
+        sizer_whole.Add(sizer_lower, 1, wx.EXPAND, 0)
+
+        #############################
+        # Radius and ID setting (upper)
+        #############################
+
+        s_text_riddesc = wx.StaticText(self.panel, wx.ID_ANY, '半径とID')
+        sizer_upper.Add(s_text_riddesc, flag=wx.ALIGN_CENTER | wx.TOP)
+        sizer_upper.Add(wx.StaticText(self.panel, wx.ID_ANY,
+                                      '分母：半径の分母(1-4)'), flag=wx.ALIGN_CENTER | wx.TOP)
+        sizer_upper.Add(wx.StaticText(self.panel, wx.ID_ANY,
+                                      '半径=線分長/半径分母\n'), flag=wx.ALIGN_CENTER | wx.TOP)
+        sizer_upper.Add(wx.StaticText(self.panel, wx.ID_ANY,
+                                      '始点,終点：半円の始点と終点のID(0-32, 下図参照)\n'), flag=wx.ALIGN_CENTER | wx.TOP)
+
+        self.spinctrl_rd = []
+        self.spinctrl_start = []
+        self.spinctrl_end = []
+
+        self.RB_front = []
+        self.RB_back = []
+
+        idperrow = 4
+        for idx in range(0, SENSOR_CONNECTION_MAX+1, idperrow):
+            sizer_rid_2 = wx.BoxSizer(wx.HORIZONTAL)
+            sizer_upper.Add(sizer_rid_2, 1, wx.EXPAND)
+
+            for i in range(idperrow):
+                sizer_rid_selector = wx.BoxSizer(wx.HORIZONTAL)
+                sizer_radius_denominator = wx.BoxSizer(wx.VERTICAL)
+                sizer_start_id = wx.BoxSizer(wx.VERTICAL)
+                sizer_end_id = wx.BoxSizer(wx.VERTICAL)
+
+                sizer_rid_selector.Add(
+                    sizer_radius_denominator, 1, wx.EXPAND, 0)
+                sizer_rid_selector.Add(
+                    sizer_start_id, 1, wx.EXPAND, 0)
+                sizer_rid_selector.Add(
+                    sizer_end_id, 1, wx.EXPAND, 0)
+
+                # get times set before or default
+                rd, start, end, circle_direction = self.emgdata_RID.GetSetRID(
+                    idx+i)
+
+                s_text_rd = wx.StaticText(self.panel, wx.ID_ANY, '分母')
+                self.spinctrl_rd.append(wx.SpinCtrl(
+                    self.panel, wx.ID_ANY, value=str(rd), min=1, max=4))
+                sizer_radius_denominator.Add(
+                    s_text_rd, flag=wx.ALIGN_CENTER | wx.TOP)
+                sizer_radius_denominator.Add(
+                    self.spinctrl_rd[-1], flag=wx.ALIGN_CENTER | wx.TOP)
+
+                s_text_start = wx.StaticText(
+                    self.panel, wx.ID_ANY, '始点')
+                self.spinctrl_start.append(wx.SpinCtrl(
+                    self.panel, wx.ID_ANY, value=str(start), max=32))
+                sizer_start_id.Add(
+                    s_text_start, flag=wx.ALIGN_CENTER | wx.TOP)
+                sizer_start_id.Add(self.spinctrl_start[-1],
+                                   flag=wx.ALIGN_CENTER | wx.TOP)
+
+                s_text_end = wx.StaticText(
+                    self.panel, wx.ID_ANY, '終点')
+                self.spinctrl_end.append(wx.SpinCtrl(
+                    self.panel, wx.ID_ANY, value=str(end), max=32))
+                sizer_end_id.Add(s_text_end, flag=wx.ALIGN_CENTER | wx.TOP)
+                sizer_end_id.Add(self.spinctrl_end[-1],
+                                 flag=wx.ALIGN_CENTER | wx.TOP)
+
+                # set front or back
+                self.RB_front.append(wx.RadioButton(
+                    self.panel, wx.ID_ANY, '前', style=wx.RB_GROUP))
+                self.RB_back.append(wx.RadioButton(
+                    self.panel, wx.ID_ANY, '後'))
+                sizer_rid_selector.Add(self.RB_front[-1], 1, wx.EXPAND, 0)
+                sizer_rid_selector.Add(self.RB_back[-1], 1, wx.EXPAND, 0)
+
+                if circle_direction == CircleDirection.FRONT:
+                    self.RB_front[-1].SetValue(True)
+                else:
+                    self.RB_back[-1].SetValue(True)
+
+                sizer_rid = wx.BoxSizer(wx.VERTICAL)
+                s_text_id = wx.StaticText(
+                    self.panel, wx.ID_ANY, "SensorID:"+str(idx+i+1))
+                sizer_rid.Add(s_text_id, flag=wx.ALIGN_CENTER |
+                              wx.TOP)
+                sizer_rid.Add(sizer_rid_selector, flag=wx.ALIGN_CENTER |
+                              wx.TOP)
+
+                sizer_rid_2.Add(sizer_rid, 1, wx.EXPAND)
+
+        #############################
+        # image (lower)
+        #############################
+        s_text_IDpicdesc = wx.StaticText(self.panel, wx.ID_ANY, 'ID対応図')
+        sizer_lower.Add(s_text_IDpicdesc,
+                        flag=wx.ALIGN_CENTER | wx.TOP, border=30)
+        try:
+            image = wx.Image('body_landmarks.png')
+            self.bitmap = image.ConvertToBitmap()
+
+            sb_image = wx.StaticBitmap(
+                self.panel, wx.ID_ANY, self.bitmap, (0, 0))
+            sizer_lower.Add(sb_image, flag=wx.EXPAND)
+            # sizer_lower.Add(sb_image, 1, wx.EXPAND, 0)
+        except:
+            print('ERROR: Cannot load image')
+            pass
+
+        #############################
+        # Lower Buttons
+        #############################
+        sizer_lowerbutton = wx.BoxSizer(wx.HORIZONTAL)
+        sizer_whole.Add(sizer_lowerbutton, 1, wx.EXPAND, border=30)
+
+        self.button_Confirmconfig = wx.Button(self.panel, wx.ID_ANY, "適用")
+        self.button_Exit = wx.Button(self.panel, wx.ID_ANY, u"閉じる")
+
+        sizer_lowerbutton.Add(self.button_Confirmconfig, 1, 0)
+        sizer_lowerbutton.Add(self.button_Exit, 1, 0)
+
+        self.panel.SetSizer(sizer_whole)
+
+        self.Layout()
+
+        self.Bind(wx.EVT_BUTTON, self.OnButtonConfirmConfig,
+                  self.button_Confirmconfig)
+        self.Bind(wx.EVT_BUTTON, self.OnButtonExit, self.button_Exit)
+
+    def OnButtonConfirmConfig(self, event):
+        for idx in range(SENSOR_CONNECTION_MAX):
+
+            rd = self.spinctrl_rd[idx].GetValue()
+            sid = self.spinctrl_start[idx].GetValue()
+            eid = self.spinctrl_end[idx].GetValue()
+
+            self.emgdata_RID.emg_datalist[idx].line_startpoint = sid
+            self.emgdata_RID.emg_datalist[idx].line_endpoint = eid
+            self.emgdata_RID.emg_datalist[idx].max_radius_denominator = rd
+
+            if self.RB_front[idx].GetValue():
+                self.emgdata_RID.emg_datalist[idx].circle_direction = CircleDirection.FRONT
+            else:
+                self.emgdata_RID.emg_datalist[idx].circle_direction = CircleDirection.BACK
 
         wx.MessageBox("設定が完了しました", u"設定完了", style=wx.OK)
 
