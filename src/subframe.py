@@ -3,12 +3,16 @@ import classPacket  # ;
 from enum import Enum
 
 # (半)円の色
+
+
 class CircleColorID(Enum):
     RED = 0
     BLACK = 1
 
 #     BLUE = 2
 # Config Window
+
+
 class SubFrame(wx.Dialog):
     def __init__(self, SerialPort, emgdata):
         # MyFrame().__init__(self)
@@ -131,29 +135,42 @@ class SubFrame(wx.Dialog):
         #############################
         # Circle color (lower left)
         #############################
+        self.color_front_tmp = self.emgdata.circlecolor_front
+        self.color_back_tmp = self.emgdata.circlecolor_back
+
         sizer_ll = wx.BoxSizer(wx.VERTICAL)
         sizer_lower.Add(sizer_ll, 1, wx.EXPAND, 0)
         s_text_ccdesc = wx.StaticText(
-            self.panel, wx.ID_ANY, '円の色')
+            self.panel, wx.ID_ANY, '半円の色')
         sizer_ll.Add(s_text_ccdesc, flag=wx.ALIGN_CENTER | wx.TOP)
 
-        sizer_circle_color = wx.BoxSizer(wx.HORIZONTAL)
-        sizer_ll.Add(sizer_circle_color,
+        # front color
+        sizer_front_color = wx.BoxSizer(wx.HORIZONTAL)
+        sizer_ll.Add(sizer_front_color,
                      flag=wx.ALIGN_CENTER | wx.TOP, border=20)
+        self.button_front_color = wx.Button(self.panel, wx.ID_ANY, u"前側の色")
+        sizer_front_color.Add(self.button_front_color, 1, wx.EXPAND, 0)
 
-        self.RB_RED = wx.RadioButton(
-            self.panel, wx.ID_ANY, '赤', style=wx.RB_GROUP)
-        self.RB_BLACK = wx.RadioButton(self.panel, wx.ID_ANY, '黒')
+        # back color
+        sizer_back_color = wx.BoxSizer(wx.HORIZONTAL)
+        sizer_ll.Add(sizer_back_color, flag=wx.ALIGN_CENTER |
+                     wx.TOP, border=20)
+        self.button_back_color = wx.Button(self.panel, wx.ID_ANY, u"後側の色")
+        sizer_back_color.Add(self.button_back_color, 1, wx.EXPAND, 0)
 
-        if self.emgdata.circlecolor_id == CircleColorID.RED:
-            self.RB_RED.SetValue(True)
-        elif self.emgdata.circlecolor_id == CircleColorID.BLACK:
-            self.RB_BLACK.SetValue(True)
-        else:
-            self.RB_RED.SetValue(True)
+        self.Bind(wx.EVT_BUTTON, self.OnButtonSelectColor(is_front=True),
+                  self.button_front_color)
+        self.Bind(wx.EVT_BUTTON, self.OnButtonSelectColor(is_front=False),
+                  self.button_back_color)
 
-        sizer_circle_color.Add(self.RB_RED, 1, wx.EXPAND, 0)
-        sizer_circle_color.Add(self.RB_BLACK, 1, wx.EXPAND, 0)
+        # color preview
+        self.front_color_preview = wx.StaticText(self.panel, wx.ID_ANY, "")
+        self.front_color_preview.SetBackgroundColour(self.color_front_tmp)
+        sizer_front_color.Add(self.front_color_preview, 1, wx.EXPAND, 0)
+
+        self.back_color_preview = wx.StaticText(self.panel, wx.ID_ANY, "")
+        self.back_color_preview.SetBackgroundColour(self.color_back_tmp)
+        sizer_back_color.Add(self.back_color_preview, 1, wx.EXPAND, 0)
 
         #############################
         # Circle size (lower right)
@@ -213,6 +230,26 @@ class SubFrame(wx.Dialog):
                   self.button_Confirmconfig)
         self.Bind(wx.EVT_BUTTON, self.OnButtonExit, self.button_Exit)
 
+    def OnButtonSelectColor(self, is_front):
+        def OnButtonSelectColor_child(event):
+            cd = wx.ColourDialog(None)
+            cd.ShowModal()
+
+            color = cd.GetColourData().GetColour()
+
+            rgb = (color[:3])
+            if is_front:
+                self.color_front_tmp = rgb
+                self.front_color_preview.SetBackgroundColour(
+                    self.color_front_tmp)
+            else:
+                self.color_back_tmp = rgb
+                self.back_color_preview.SetBackgroundColour(
+                    self.color_back_tmp)
+
+            self.Refresh()
+        return OnButtonSelectColor_child
+
     def OnButtonConfirmConfig(self, event):
         # Timer
         self.emgdata.hours = self.spinctrl_h.GetValue()
@@ -235,15 +272,8 @@ class SubFrame(wx.Dialog):
             self.emgdata.measureMode = 0x35
 
         # Circle color
-        if self.RB_RED.GetValue():
-            self.emgdata.circlecolor_id = CircleColorID.RED
-            self.emgdata.circlecolor_front = (255, 0, 0)
-            self.emgdata.circlecolor_back = (0, 0, 255)
-        else:
-            self.emgdata.circlecolor_id = CircleColorID.BLACK
-            self.emgdata.circlecolor_front = (0, 0, 0)
-            self.emgdata.circlecolor_back = (255, 255, 255)
-
+        self.emgdata.circlecolor_front = self.color_front_tmp
+        self.emgdata.circlecolor_back = self.color_back_tmp
 
         # Circle size (magnification scale)
         self.emgdata.magscale = self.spinctrldouble_ms.GetValue()

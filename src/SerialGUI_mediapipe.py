@@ -165,6 +165,9 @@ class EMGData:
 
     def GetSetTime(self):
         return self.hours, self.minutes, self.seconds
+    
+    def GetSetColor(self):
+        return self.circlecolor_front, self.circlecolor_back
 
 
 class MyFrame(wx.Frame):
