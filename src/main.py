@@ -41,8 +41,8 @@ SENSOR_CONNECTION_MAX = 17
 
 class LogText(object):
 
-    # コンストラクタ
-    #	@return	なし
+    # 
+    #	@return	コンストラクタなし
     #	@param	self 		The object pointer.
     #	@param	txt 		ログ文字列
     def __init__(self, txt):
@@ -68,8 +68,6 @@ class LogText(object):
         return lineText
 
 
-
-
 # 身体の向き(自分から見て)
 
 
@@ -77,9 +75,6 @@ class BodyDirection(Enum):
     LEFT = 0
     RIGHT = 1
     NONE = 2
-
-
-
 
 
 class EMGData:
@@ -113,30 +108,37 @@ class EMGData:
         self.emg_datalist = []
 
         # 1:大殿筋, 体幹長の1/2
-        # self.emg_datalist.append(subframe.SensorInfo(
-        #     2, 12, 24, subframe.CircleDirection.BACK))
+        self.emg_datalist.append(subframe.SensorInfo(
+            1, 12, 24, subframe.CircleDirection.BACK))
 
         # # dummy
         # self.emg_datalist.append(subframe.SensorInfo(
         #     2, 12, 24, subframe.CircleDirection.FRONT))
-
-        # # 2:大腿二頭筋, 大腿長の1/3
-        # self.emg_datalist.append(subframe.SensorInfo(
-        #     3, 24, 26, subframe.CircleDirection.BACK))
-
+        # 4:内側広筋, 大腿長の1/3
+        self.emg_datalist.append(subframe.SensorInfo(
+            1, 24, 26, subframe.CircleDirection.FRONT))
+        # 2:大腿二頭筋, 大腿長の1/3
+        self.emg_datalist.append(subframe.SensorInfo(
+            1, 24, 26, subframe.CircleDirection.BACK))
+        # 5:前脛骨筋, 下腿長の1/3
+        self.emg_datalist.append(subframe.SensorInfo(
+            1, 26, 28, subframe.CircleDirection.FRONT))
         # 3:腓腹筋, 下腿長の1/3
         self.emg_datalist.append(subframe.SensorInfo(
             1, 26, 28, subframe.CircleDirection.BACK))
 
-        # # 4:内側広筋, 大腿長の1/3
+
+
+
+
         # self.emg_datalist.append(subframe.SensorInfo(
-        #     3, 24, 26, subframe.CircleDirection.FRONT))
+        #     2, 12, 24, subframe.CircleDirection.BACK))
 
-        # 5:前脛骨筋, 下腿長の1/3
+        # dummy
         self.emg_datalist.append(subframe.SensorInfo(
-            1, 26, 28, subframe.CircleDirection.FRONT))
+            2, 12, 24, subframe.CircleDirection.FRONT))
 
-        for i in range(SENSOR_CONNECTION_MAX-2):
+        for i in range(SENSOR_CONNECTION_MAX-6):
             self.emg_datalist.append(subframe.SensorInfo(1, 0, 0, True))
 
         # ポート番号
@@ -146,12 +148,24 @@ class EMGData:
         self.targetSenssorModuleId = 0xFF  # To all sensors
         # ログ
         self.ListLog = []
+        # 使用するセンサーの数
+        self.SensorModulenum = 5
 
     def GetSetTime(self):
         return self.hours, self.minutes, self.seconds
 
+    def GetSetSensorModulenum(self):
+        return self.SensorModulenum
+
+    def GetSetCalibrationTime(self):
+        return self.calibration_time
+
     def GetSetColor(self):
-        return self.circlecolor_front, self.circlecolor_back
+        front = (
+            self.circlecolor_front[2], self.circlecolor_front[1], self.circlecolor_front[0])
+        back = (
+            self.circlecolor_back[2], self.circlecolor_back[1], self.circlecolor_back[0])
+        return self.circlecolor_front, self.circlecolor_front
 
     def GetSetRID(self, idx):
         emg_data = self.emg_datalist[idx]
@@ -168,6 +182,8 @@ class MyFrame(wx.Frame):
         # self.pyqtapp_terminate = False
         self.SetWindowStyle()
         self.SerialPort = classSerial.SerialPort()  # シリアルポート    ##	スレッド実行中か？
+
+        self.PlotterOpened = False
 
     def SetWindowStyle(self):
         # self.SetSize((700, 450))
@@ -190,6 +206,10 @@ class MyFrame(wx.Frame):
         sizer_2.Add(self.button_Connect, 0,
                     wx.ALIGN_CENTER_VERTICAL | wx.ALL, 4)
 
+        self.button_Config = wx.Button(self.panel, wx.ID_ANY, u"設定")
+        sizer_2.Add(self.button_Config, 0,
+                    wx.ALIGN_CENTER_VERTICAL | wx.ALL, 4)
+
         self.button_Prepare = wx.Button(self.panel, wx.ID_ANY, u"計測準備")
         sizer_2.Add(self.button_Prepare, 0,
                     wx.ALIGN_CENTER_VERTICAL | wx.ALL, 4)
@@ -201,6 +221,10 @@ class MyFrame(wx.Frame):
 
         self.button_Start = wx.Button(self.panel, wx.ID_ANY, u"計測開始")
         sizer_2.Add(self.button_Start, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 4)
+
+        self.button_Stop = wx.Button(self.panel, wx.ID_ANY, u"計測終了")
+        sizer_2.Add(self.button_Stop, 0,
+                    wx.ALIGN_CENTER_VERTICAL | wx.ALL, 4)
 
         sizer_3 = wx.BoxSizer(wx.HORIZONTAL)
         sizer_1.Add(sizer_3, 2, wx.EXPAND, 0)
@@ -221,11 +245,8 @@ class MyFrame(wx.Frame):
 
         sizer_4.Add((150, 20), 2, 0, 0)
 
-        self.button_Config = wx.Button(self.panel, wx.ID_ANY, u"設定")
-        sizer_4.Add(self.button_Config, 1, wx.ALL, 4)
-
-        self.button_Stop = wx.Button(self.panel, wx.ID_ANY, u"計測終了")
-        sizer_4.Add(self.button_Stop, 1, wx.ALL, 4)
+        self.button_Plotter = wx.Button(self.panel, wx.ID_ANY, u"グラフ表示")
+        sizer_4.Add(self.button_Plotter, 1, wx.ALL, 4)
 
         self.button_Exit = wx.Button(self.panel, wx.ID_ANY, u"終了")
         sizer_4.Add(self.button_Exit, 1, wx.ALL, 4)
@@ -242,6 +263,7 @@ class MyFrame(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self.OnButonEnd, self.button_Stop)
         self.Bind(wx.EVT_BUTTON, self.OnButtonExit, self.button_Exit)
         self.Bind(wx.EVT_BUTTON, self.OnButtonConfig, self.button_Config)
+        self.Bind(wx.EVT_BUTTON, self.OnButtonOpenPlotter, self.button_Plotter)
 
         self.Bind(wx.EVT_CLOSE, self.ExitHandler)
         self.Show(True)
@@ -415,24 +437,24 @@ class MyFrame(wx.Frame):
 
     def OnButtonPrepare(self, event):  # 計測準備
         sendCommandBuff = classPacket.getSendCommand(
-            DEF_SENDCOMMAND_ID_PREMEASURE, self.emgdata.targetSenssorModuleId)  # コマンド値, ターゲットID
+            DEF_SENDCOMMAND_ID_PREMEASURE, self.emgdata.targetSenssorModuleId, self.emgdata.measureMode)  # コマンド値, ターゲットID
         self.SerialPort.sendPacket(sendCommandBuff)
 
     def OnButtonCalibration(self, event):  # 計測開始
         self.emgdata.is_calibration = True
         sendCommandBuff = classPacket.getSendCommand(
-            DEF_SENDCOMMAND_ID_STARTMEASURE, self.emgdata.targetSenssorModuleId)  # コマンド値, ターゲットID
+            DEF_SENDCOMMAND_ID_STARTMEASURE, self.emgdata.targetSenssorModuleId, self.emgdata.measureMode)  # コマンド値, ターゲットID
         self.SerialPort.sendPacket(sendCommandBuff)
 
     def calibration_timer(self):
-        time.sleep(10)
+        time.sleep(self.emgdata.calibration_time)
         self.emgdata.is_calibration = False
         self.addLog("キャリブレーション終了")
 
     def OnButtonStart(self, event):  # 計測開始
         self.emgdata.is_calibration = True
         sendCommandBuff = classPacket.getSendCommand(
-            DEF_SENDCOMMAND_ID_STARTMEASURE, self.emgdata.targetSenssorModuleId)  # コマンド値, ターゲットID
+            DEF_SENDCOMMAND_ID_STARTMEASURE, self.emgdata.targetSenssorModuleId, self.emgdata.measureMode)  # コマンド値, ターゲットID
         self.SerialPort.sendPacket(sendCommandBuff)
         self.addLog("キャリブレーション中")
         t = threading.Thread(target=self.calibration_timer)
@@ -440,7 +462,7 @@ class MyFrame(wx.Frame):
 
     def OnButonEnd(self, event):  # 計測終了
         sendCommandBuff = classPacket.getSendCommand(
-            DEF_SENDCOMMAND_ID_ENDMEASURE, self.emgdata.targetSenssorModuleId)  # コマンド値, ターゲットID
+            DEF_SENDCOMMAND_ID_ENDMEASURE, self.emgdata.targetSenssorModuleId, self.emgdata.measureMode)  # コマンド値, ターゲットID
         self.SerialPort.sendPacket(sendCommandBuff)
 
     def OnButtonExit(self, event):  # プログラム終了
@@ -462,33 +484,21 @@ class MyFrame(wx.Frame):
     def ExitHandler(self, event):
         self.Destroy()
 
-
-# end of class MyFrame
-
-class MyApp(wx.App):
-    def OnInit(self):
-        self.frame = MyFrame(None, wx.ID_ANY, "")
-        self.SetTopWindow(self.frame)
-        self.frame.Show()
-
-        thread_rs = threading.Thread(target=self.mediapipe_render, daemon=True)
-        thread_rs.start()
-
-        t_pyqt = threading.Thread(target=self.pyqt_exection)
-        t_pyqt.start()
-
-        # self.pyqt_exection()
-
-        return True
+    def OnButtonOpenPlotter(self, event):  # グラフ表示
+        if not self.PlotterOpened:
+            self.PlotterOpened = True
+            t_pyqt = threading.Thread(target=self.pyqt_exection)
+            t_pyqt.start()
 
     def pyqt_exection(self):
         self.win = pg.GraphicsLayoutWidget()
-        self.win.resize(1000, 600)
+        self.win.resize(1000, self.emgdata.SensorModulenum*150)
+
         self.win.show()
 
         self.curve_list = []
         # set plot regions
-        for i in range(3):
+        for i in range(self.emgdata.SensorModulenum):
             title = "real-time plot "+str(i+1)
             p = self.win.addPlot(title=title, col=0, row=i)
             p.setYRange(0, 2)
@@ -499,7 +509,7 @@ class MyApp(wx.App):
             curve.getViewBox().enableAutoRange(axis='y', enable=True)
             try:
                 curve.setData(
-                    self.frame.emgdata.emg_datalist[i].emg_data_sequence)
+                    self.emgdata.emg_datalist[i].emg_data_sequence)
             except:
                 pass
 
@@ -513,13 +523,71 @@ class MyApp(wx.App):
         if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
             PyQt5.QtWidgets.QApplication.instance().exec_()
 
+        self.PlotterOpened = False
+
     def plot_emgdata(self):
         for i, curve in enumerate(self.curve_list):
             try:
                 curve.setData(
-                    self.frame.emgdata.emg_datalist[i].emg_data_sequence)
+                    self.emgdata.emg_datalist[i].emg_data_sequence)
             except:
                 pass
+
+# end of class MyFrame
+
+
+class MyApp(wx.App):
+    def OnInit(self):
+        self.frame = MyFrame(None, wx.ID_ANY, "")
+        self.SetTopWindow(self.frame)
+        self.frame.Show()
+
+        thread_rs = threading.Thread(target=self.mediapipe_render, daemon=True)
+        thread_rs.start()
+
+        # self.pyqt_exection()
+
+        return True
+
+    # def pyqt_exection(self):
+    #     self.win = pg.GraphicsLayoutWidget()
+    #     self.win.resize(1000, self.frame.emgdata.SensorModulenum*150)
+    #     self.win.show()
+
+    #     self.curve_list = []
+    #     # set plot regions
+    #     for i in range(self.frame.emgdata.SensorModulenum):
+    #         title = "real-time plot "+str(i+1)
+    #         p = self.win.addPlot(title=title, col=0, row=i)
+    #         p.setYRange(0, 2)
+    #         p.setXRange(0, 3000)
+    #         self.curve_list.append(p.plot(pen='c'))
+
+    #     for i, curve in enumerate(self.curve_list):
+    #         curve.getViewBox().enableAutoRange(axis='y', enable=True)
+    #         try:
+    #             curve.setData(
+    #                 self.frame.emgdata.emg_datalist[i].emg_data_sequence)
+    #         except:
+    #             pass
+
+    #     pg.setConfigOptions(antialias=True)
+
+    #     fps = 120
+    #     timer = QtCore.QTimer()
+    #     timer.timeout.connect(self.plot_emgdata)
+    #     timer.start(int(1/fps * 1000))
+
+    #     if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
+    #         PyQt5.QtWidgets.QApplication.instance().exec_()
+
+    # def plot_emgdata(self):
+    #     for i, curve in enumerate(self.curve_list):
+    #         try:
+    #             curve.setData(
+    #                 self.frame.emgdata.emg_datalist[i].emg_data_sequence)
+    #         except:
+    #             pass
 
     def render_ids_3d(self, render_image, poselandmarks, data_list_past):
         log_r = np.math.log(
@@ -552,11 +620,6 @@ class MyApp(wx.App):
                     landmark_end_x == None or landmark_end_y == None):
                 continue
 
-            # render_image = cv2.circle(render_image,
-            #                           (int(landmark_start.x*render_image.shape[1]),
-            #                            int(landmark_start.y*render_image.shape[0])),
-            #                           10, (0, 0, 255), -1)
-
             # render arc
             center = (int((landmark_start_x+landmark_end_x)/2.0),
                       int((landmark_start_y+landmark_end_y)/2.0))
@@ -566,80 +629,28 @@ class MyApp(wx.App):
                 pow(landmark_start_x-landmark_end_x, 2.0) +
                 pow(landmark_start_y-landmark_end_y, 2.0)) / (2*emg_data.max_radius_denominator)
 
-            if emg_data.circle_direction == subframe.CircleDirection.BACK:
-                angle += 180
             color = None
+
+            front = (
+                self.frame.emgdata.circlecolor_front[2], self.frame.emgdata.circlecolor_front[1], self.frame.emgdata.circlecolor_front[0])
+            back = (
+                self.frame.emgdata.circlecolor_back[2], self.frame.emgdata.circlecolor_back[1], self.frame.emgdata.circlecolor_back[0])
 
             if self.frame.emgdata.body_direction == BodyDirection.RIGHT:
                 if emg_data.circle_direction == subframe.CircleDirection.FRONT:
-                    color = self.frame.emgdata.circlecolor_back
+                    color = front
                 else:
-                    color = self.frame.emgdata.circlecolor_front
+                    color = back
+                    angle += 180
             else:
                 if emg_data.circle_direction == subframe.CircleDirection.FRONT:
-                    color = self.frame.emgdata.circlecolor_back
+                    color = front
+                    angle += 180
                 else:
-                    color = self.frame.emgdata.circlecolor_front
+                    color = back
 
             cv2.ellipse(render_image, center, (int(radius_max*radius_ratio), int(radius_max*radius_ratio)), angle,
                         0, 180, color, thickness=-1)
-        # for emg_data in self.frame.emgdata.emg_datalist:
-        #     radius_ratio = 0
-
-        #     # TODO:最大径に対する比率に直す
-        #     if emg_data.emg_data_max != 0:
-        #         if self.frame.emgdata.radiusscale == RadiusScale.LOGARITHMIC:
-        #             radius_ratio = emg_data.emg_data/emg_data.emg_data_max
-        #         else:
-        #             radius_ratio = emg_data.emg_data/emg_data.emg_data_max
-
-        #     if poselandmarks == None:
-        #         return
-
-        #     landmark_start_x = render_image.shape[1] * \
-        #         poselandmarks.landmark[emg_data.line_startpoint].x
-        #     landmark_start_y = render_image.shape[0] * \
-        #         poselandmarks.landmark[emg_data.line_startpoint].y
-        #     landmark_end_x = render_image.shape[1] * \
-        #         poselandmarks.landmark[emg_data.line_endpoint].x
-        #     landmark_end_y = render_image.shape[0] * \
-        #         poselandmarks.landmark[emg_data.line_endpoint].y
-
-        #     if (landmark_start_x == None or landmark_start_y == None or
-        #             landmark_end_x == None or landmark_end_y == None):
-        #         continue
-
-        #     # render_image = cv2.circle(render_image,
-        #     #                           (int(landmark_start.x*render_image.shape[1]),
-        #     #                            int(landmark_start.y*render_image.shape[0])),
-        #     #                           10, (0, 0, 255), -1)
-
-        #     # render arc
-        #     center = (int((landmark_start_x+landmark_end_x)/2.0),
-        #               int((landmark_start_y+landmark_end_y)/2.0))
-        #     angle = np.arctan2(landmark_start_y-center[1],
-        #                        landmark_start_x-center[0]) * 180 / np.pi
-        #     radius_max = np.sqrt(
-        #         pow(landmark_start_x-landmark_end_x, 2.0) +
-        #         pow(landmark_start_y-landmark_end_y, 2.0)) / (2*emg_data.max_radius_denomitor)
-
-        #     if emg_data.circle_direction == subframe.CircleDirection.BACK:
-        #         angle += 180
-        #     color = None
-
-        #     if self.frame.emgdata.body_direction == BodyDirection.RIGHT:
-        #         if emg_data.circle_direction == subframe.CircleDirection.FRONT:
-        #             color = self.frame.emgdata.circlecolor_back
-        #         else:
-        #             color = self.frame.emgdata.circlecolor_front
-        #     else:
-        #         if emg_data.circle_direction == subframe.CircleDirection.FRONT:
-        #             color = self.frame.emgdata.circlecolor_back
-        #         else:
-        #             color = self.frame.emgdata.circlecolor_front
-
-        #     cv2.ellipse(render_image, center, (int(radius_max*radius_ratio), int(radius_max*radius_ratio)), angle,
-        #                 0, 180, color, thickness=-1)
 
     def mediapipe_render(self):
 
@@ -678,11 +689,6 @@ class MyApp(wx.App):
                     results.pose_landmarks,
                     mp_pose.POSE_CONNECTIONS,
                     landmark_drawing_spec=mp_drawing_styles.get_default_pose_landmarks_style())
-
-                # image = cv2.circle(image,
-                #                    (int(results.pose_landmarks.landmark[0].x*image.shape[1]),
-                #                     int(results.pose_landmarks.landmark[0].y*image.shape[0])),
-                #                    10, (0, 0, 255), -1)
 
                 self.render_ids_3d(
                     image, results.pose_landmarks, data_list_past

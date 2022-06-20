@@ -114,9 +114,7 @@ def convertValueByByte(packet, startIdx, length):
 #	@param		sendCommandId			:	送信コマンドID
 #	@param		targetSenssorModuleId	：	対象センサーモジュールID
 #
-def getSendCommand(sendCommandId, targetSenssorModuleId):
-
-    measureMode = 0x55
+def getSendCommand(sendCommandId, targetSenssorModuleId, measureMode):
 
     # コマンドIDに対応したパケットコマンドを返す
     if sendCommandId == DEF_SENDCOMMAND_ID_GETSTATUSINFO:

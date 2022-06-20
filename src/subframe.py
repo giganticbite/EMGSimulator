@@ -106,34 +106,34 @@ class SubFrame(wx.Dialog):
         hours, minutes, seconds = self.emgdata.GetSetTime()
         s_text_hh = wx.StaticText(self.panel, wx.ID_ANY, 'hh(0-59)')
         self.spinctrl_h = wx.SpinCtrl(
-            self.panel, wx.ID_ANY, value=str(hours), max=59)
+            self.panel, wx.ID_ANY, value=str(hours), min=0, max=59)
         sizer_hh.Add(s_text_hh, flag=wx.ALIGN_CENTER | wx.TOP)
         sizer_hh.Add(self.spinctrl_h, flag=wx.ALIGN_CENTER | wx.TOP)
 
         s_text_mm = wx.StaticText(self.panel, wx.ID_ANY, 'mm(0-59)')
         self.spinctrl_m = wx.SpinCtrl(
-            self.panel, wx.ID_ANY, value=str(minutes), max=59)
+            self.panel, wx.ID_ANY, value=str(minutes), min=0, max=59)
         sizer_mm.Add(s_text_mm, flag=wx.ALIGN_CENTER | wx.TOP)
         sizer_mm.Add(self.spinctrl_m, flag=wx.ALIGN_CENTER | wx.TOP)
 
         s_text_ss = wx.StaticText(self.panel, wx.ID_ANY, 'ss(0-59)')
         self.spinctrl_s = wx.SpinCtrl(
-            self.panel, wx.ID_ANY, value=str(seconds), max=59)
+            self.panel, wx.ID_ANY, value=str(seconds), min=0, max=59)
         sizer_ss.Add(s_text_ss, flag=wx.ALIGN_CENTER | wx.TOP)
         sizer_ss.Add(self.spinctrl_s, flag=wx.ALIGN_CENTER | wx.TOP)
 
         #############################
-        # Connetion mode (upper right)
+        # Connetion mode (upper middle)
         #############################
-        sizer_ur = wx.BoxSizer(wx.VERTICAL)
-        sizer_upper.Add(sizer_ur, 1, wx.EXPAND, 0)
+        sizer_um = wx.BoxSizer(wx.VERTICAL)
+        sizer_upper.Add(sizer_um, 1, wx.EXPAND, 0)
 
         s_text_modedesc = wx.StaticText(
             self.panel, wx.ID_ANY, '計測モード設定(同時使用可能ID)')
-        sizer_ur.Add(s_text_modedesc, flag=wx.ALIGN_CENTER | wx.TOP)
+        sizer_um.Add(s_text_modedesc, flag=wx.ALIGN_CENTER | wx.TOP)
 
         sizer_connection_mode = wx.BoxSizer(wx.HORIZONTAL)
-        sizer_ur.Add(sizer_connection_mode,
+        sizer_um.Add(sizer_connection_mode,
                      flag=wx.ALIGN_CENTER | wx.TOP, border=20)
 
         self.RB_40hz = wx.RadioButton(
@@ -153,6 +153,31 @@ class SubFrame(wx.Dialog):
         sizer_connection_mode.Add(self.RB_40hz, 1, wx.EXPAND, 0)
         sizer_connection_mode.Add(self.RB_20hz, 1, wx.EXPAND, 0)
         sizer_connection_mode.Add(self.RB_10hz, 1, wx.EXPAND, 0)
+
+        #############################
+        # Timer setting (upper right)
+        #############################
+        sizer_ur = wx.BoxSizer(wx.VERTICAL)
+        sizer_upper.Add(sizer_ur, 1, wx.EXPAND, 0)
+
+        s_text_calibtdesc = wx.StaticText(
+            self.panel, wx.ID_ANY, 'キャリブレーション時間設定')
+        sizer_ur.Add(s_text_calibtdesc, flag=wx.ALIGN_CENTER | wx.TOP)
+
+        sizer_calibt = wx.BoxSizer(wx.HORIZONTAL)
+        sizer_ur.Add(sizer_calibt, 1, wx.EXPAND, 0)
+
+        sizer_calibtss = wx.BoxSizer(wx.VERTICAL)
+        sizer_calibt.Add(sizer_calibtss, 1, wx.EXPAND, 0)
+
+        # get times set before or default
+        calibseconds = self.emgdata.GetSetCalibrationTime()
+        s_text_calibss = wx.StaticText(self.panel, wx.ID_ANY, 'ss(0-59)')
+        self.spinctrl_calibss = wx.SpinCtrl(
+            self.panel, wx.ID_ANY, value=str(calibseconds), min=0, max=59)
+        sizer_calibtss.Add(s_text_calibss, flag=wx.ALIGN_CENTER | wx.TOP)
+        sizer_calibtss.Add(self.spinctrl_calibss,
+                           flag=wx.ALIGN_CENTER | wx.TOP)
 
         #############################
         # Circle color (lower left)
@@ -193,6 +218,31 @@ class SubFrame(wx.Dialog):
         self.back_color_preview = wx.StaticText(self.panel, wx.ID_ANY, "")
         self.back_color_preview.SetBackgroundColour(self.color_back_tmp)
         sizer_back_color.Add(self.back_color_preview, 1, wx.EXPAND, 0)
+
+        #############################
+        # Plotter setting (lower middle)
+        #############################
+        sizer_lm = wx.BoxSizer(wx.VERTICAL)
+        sizer_lower.Add(sizer_lm, 1, wx.EXPAND, 0)
+
+        s_text_plotterdesc = wx.StaticText(
+            self.panel, wx.ID_ANY, 'グラフの数')
+        sizer_lm.Add(s_text_plotterdesc,
+                     flag=wx.ALIGN_CENTER | wx.TOP, border=30)
+
+        sizer_plotter = wx.BoxSizer(wx.HORIZONTAL)
+        sizer_lm.Add(sizer_plotter, 1, wx.EXPAND, 0)
+
+        sizer_plotternum = wx.BoxSizer(wx.VERTICAL)
+        sizer_plotter.Add(sizer_plotternum, 1, wx.EXPAND, 0)
+
+        # get number set before or default
+        plotternum = self.emgdata.GetSetSensorModulenum()
+
+        self.spinctrl_plotternum = wx.SpinCtrl(
+            self.panel, wx.ID_ANY, value=str(plotternum), min=1, max=16)
+        sizer_plotternum.Add(self.spinctrl_plotternum,
+                             flag=wx.ALIGN_CENTER | wx.TOP, border=30)
 
         #############################
         # Circle size (lower right)
@@ -268,9 +318,15 @@ class SubFrame(wx.Dialog):
         else:
             self.emgdata.measureMode = 0x35
 
+        # Calibration timer
+        self.emgdata.calibration_time = self.spinctrl_calibss.GetValue()
+
         # Circle color
         self.emgdata.circlecolor_front = self.color_front_tmp
         self.emgdata.circlecolor_back = self.color_back_tmp
+
+        # Plotter num
+        self.emgdata.SensorModulenum = self.spinctrl_plotternum.GetValue()
 
         wx.MessageBox("設定が完了しました", u"設定完了", style=wx.OK)
 
