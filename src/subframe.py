@@ -340,6 +340,50 @@ class SubFrame(wx.Dialog):
         RadiusandID(self.emgdata)
 
 
+class ReceiveChecker(wx.Dialog):
+    def __init__(self
+                 #  , SerialPort, emgdata
+                 ):
+        # MyFrame().__init__(self)
+        # self.SerialPort = SerialPort
+        # self.emgdata = emgdata
+
+        wx.Dialog.__init__(self, None, -1, "受信チェック")
+        self.SetSize((750, 250))
+
+        self.SetWindowStyle()
+        # self.Show(True)
+        # self.ShowModal()
+
+    def SetWindowStyle(self):
+        self.panel = wx.Panel(self, wx.ID_ANY)
+        
+        sizer_receive_checker = wx.BoxSizer(wx.VERTICAL)
+
+        s_text_riddesc = wx.StaticText(self.panel, wx.ID_ANY, '受信チェック')
+        sizer_receive_checker.Add(s_text_riddesc, flag=wx.ALIGN_CENTER | wx.TOP)
+
+        self.RB_front = []
+        self.RB_back = []
+
+        idperrow = 4
+        for idx in range(0, SENSOR_CONNECTION_MAX+1, idperrow):
+            sizer_rid_2 = wx.BoxSizer(wx.HORIZONTAL)
+            sizer_receive_checker.Add(sizer_rid_2, 1, wx.EXPAND)
+
+            for i in range(idperrow):
+                # color preview
+                self.color_preview = wx.StaticText(
+                    self.panel, wx.ID_ANY, str(idx+i+1))
+                self.color_preview.SetBackgroundColour((255, 255, 255))
+                # self.color_preview.SetBackgroundColour(self.color_front_tmp)
+                sizer_rid_2.Add(self.color_preview, 1, wx.EXPAND, 0)
+
+        self.panel.SetSizer(sizer_receive_checker)
+
+        self.Layout()
+
+
 class RadiusandID(wx.Dialog):
     def __init__(self, emgdata):
         self.emgdata_RID = emgdata

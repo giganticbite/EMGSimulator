@@ -31,17 +31,14 @@ DEF_SENDCOMMAND_ID_ENDMEASURE = 4
 
 SENSOR_CONNECTION_MAX = 17
 
-# ログ管理用オブジェクト
-# ログを貯めておくオブジェクト
-# win = pg.GraphicsLayoutWidget()
-# win.resize(500, 500)
-# win.show()
-# p = win.addPlot(title="real-time plot")
-
+WHITE = wx.Colour(255, 255, 255)
+BLACK = wx.Colour(0, 0, 0)
+RED = wx.Colour(255, 0, 0)
+BLUE = wx.Colour(0, 0, 255)
 
 class LogText(object):
 
-    # 
+    #
     #	@return	コンストラクタなし
     #	@param	self 		The object pointer.
     #	@param	txt 		ログ文字列
@@ -89,8 +86,8 @@ class EMGData:
 
         # (半)円の色
         self.circlecolor_id = subframe.CircleColorID.RED
-        self.circlecolor_front = (255, 0, 0)
-        self.circlecolor_back = (0, 0, 255)
+        self.circlecolor_front = RED
+        self.circlecolor_back = BLUE
 
         # (半)円の半径のスケール
         self.magscale = 5.0
@@ -126,10 +123,6 @@ class EMGData:
         # 3:腓腹筋, 下腿長の1/3
         self.emg_datalist.append(subframe.SensorInfo(
             1, 26, 28, subframe.CircleDirection.BACK))
-
-
-
-
 
         # self.emg_datalist.append(subframe.SensorInfo(
         #     2, 12, 24, subframe.CircleDirection.BACK))
@@ -214,11 +207,6 @@ class MyFrame(wx.Frame):
         sizer_2.Add(self.button_Prepare, 0,
                     wx.ALIGN_CENTER_VERTICAL | wx.ALL, 4)
 
-        # self.button_Calibration = wx.Button(
-        #     self.panel, wx.ID_ANY, u"キャリブレーション")
-        # sizer_2.Add(self.button_Calibration, 0,
-        #             wx.ALIGN_CENTER_VERTICAL | wx.ALL, 4)
-
         self.button_Start = wx.Button(self.panel, wx.ID_ANY, u"計測開始")
         sizer_2.Add(self.button_Start, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 4)
 
@@ -231,19 +219,31 @@ class MyFrame(wx.Frame):
 
         self.text_Receive = wx.TextCtrl(
             self.panel, wx.ID_ANY, "", style=wx.TE_MULTILINE)
-        self.text_Receive.SetMinSize((320, 150))
-        sizer_3.Add(self.text_Receive, 4, wx.ALL | wx.EXPAND, 4)
+        self.text_Receive.SetMinSize((280, 150))
+        sizer_3.Add(self.text_Receive, 4, wx.ALL, 4)
 
-        sizer_5 = wx.BoxSizer(wx.HORIZONTAL)
-        sizer_1.Add(sizer_5, 1, wx.EXPAND, 0)
+        self.receive_checker = []
+        sizer_receive_checker = wx.BoxSizer(wx.VERTICAL)
+        s_text_riddesc = wx.StaticText(self.panel, wx.ID_ANY, '受信チェック')
+        sizer_receive_checker.Add(
+            s_text_riddesc, flag=wx.ALIGN_CENTER | wx.TOP)
 
-        self.text_Emg = wx.TextCtrl(self.panel, wx.ID_ANY, "")
-        sizer_5.Add(self.text_Emg, 1, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 4)
+        idperrow = 17
+        for idx in range(0, SENSOR_CONNECTION_MAX, idperrow):
+            sizer_rid_2 = wx.BoxSizer(wx.HORIZONTAL)
+            sizer_receive_checker.Add(sizer_rid_2, 1, wx.EXPAND)
+
+            for i in range(idperrow):
+                self.receive_checker.append(wx.StaticText(
+                    self.panel, wx.ID_ANY, label=str(idx+i+1), style=wx.ALIGN_CENTRE_HORIZONTAL))
+                self.receive_checker[-1].SetBackgroundColour(WHITE)
+                sizer_rid_2.Add(self.receive_checker[-1], 1, wx.EXPAND, 0)
 
         sizer_4 = wx.BoxSizer(wx.HORIZONTAL)
         sizer_1.Add(sizer_4, 1, wx.EXPAND, 0)
 
-        sizer_4.Add((150, 20), 2, 0, 0)
+        sizer_4.Add(sizer_receive_checker, flag=wx.ALIGN_CENTER | wx.TOP)
+        sizer_4.Add((100, 20), 2, 0, 0)
 
         self.button_Plotter = wx.Button(self.panel, wx.ID_ANY, u"グラフ表示")
         sizer_4.Add(self.button_Plotter, 1, wx.ALL, 4)
@@ -315,11 +315,19 @@ class MyFrame(wx.Frame):
         # self.emgdata.ListLog.append(newLog)
         self.emgdata.ListLog.append(logString)
         # ログを更新
-        self.updateMessage()
+        # self.updateMessage()
+        self.text_Receive.AppendText(self.emgdata.ListLog[-1]+'\n')
 
     def updateMessage(self):
         for log in self.emgdata.ListLog:
             self.text_Receive.AppendText(log+'\n')
+
+    def updateReceiveChecker(self, status_sid, color):
+        try:
+            self.receive_checker[status_sid-1].SetBackgroundColour(color)
+            self.Refresh()
+        except:
+            pass
 
     # パケットの受信待ち    スレッド処理
     #        スレッドから呼び出される
@@ -354,12 +362,22 @@ class MyFrame(wx.Frame):
                         self.emgdata.emg_datalist[sid-1].emg_data = round(struct.unpack_from(
                             b'>f', packetBuff, 15)[0], 2)
 
+                        # datとackでセンサーIDをあらわすメンバ変数の名前が異なっている
+                        # 正しくは4バイト目の「対象センサモジュールID」
+                        status_sid = resultDic['dat'].mTargetSensorModuleId
                         if self.emgdata.is_calibration:
                             self.emgdata.emg_datalist[sid-1].emg_data_max = max(
                                 self.emgdata.emg_datalist[sid-1].emg_data_max, self.emgdata.emg_datalist[sid-1].emg_data)
                         else:
                             self.emgdata.emg_datalist[sid-1].emg_data_sequence.append(
                                 self.emgdata.emg_datalist[sid-1].emg_data)
+
+                        # print(status_sid)
+                        try:
+                            if not self.receive_checker[status_sid-1].GetBackgroundColour().__eq__(RED):
+                                self.updateReceiveChecker(status_sid, RED)
+                        except:
+                            pass
 
                     if 0 < len(resultDic):
                         # self.addLog(u"受信成功")
@@ -373,29 +391,35 @@ class MyFrame(wx.Frame):
                                 if res_code == 0x9F:
                                     if status == 0x21:
                                         self.addLog(str(status_sid)+": 計測準備完了")
+                                        self.updateReceiveChecker(
+                                            status_sid, BLUE)
                                     elif status == 0x75:
-                                        self.addLog(
-                                            str(status_sid)+": 計測準備完了済")
+                                        # self.addLog(
+                                        #     str(status_sid)+": 計測準備完了済")
+                                        self.updateReceiveChecker(
+                                            status_sid, BLUE)
                                     elif status == 0x76:
-                                        self.addLog(
-                                            str(status_sid)+": 計測準備未完了")
+                                        # self.addLog(
+                                        #     str(status_sid)+": 計測準備未完了")
+                                        self.updateReceiveChecker(
+                                            status_sid, WHITE)
+                                elif res_code == 0x82:  # 計測不可時
+                                    self.updateReceiveChecker(
+                                        status_sid, BLACK)
                                 if res_code == 0x84 and status == 0x21:
                                     self.addLog(str(status_sid)+": 通信終了")
+                                    self.updateReceiveChecker(
+                                        status_sid, WHITE)
 
-                                self.addLog(ack.getString())
 
                         if 'dat' in resultDic:
                             dat = resultDic['dat']
-                            # if dat != None:
-                            #     self.addLog(dat.getResultByString())
 
                     else:
-                        # self.addLog(u"受信失敗")
                         dmyCnt += 1
 
                 else:
                     dmyCnt += 1
-                    # print "running ReceivePacketASync..."
 
             else:
                 # ポートが無効なので、いったん停止
@@ -485,53 +509,83 @@ class MyFrame(wx.Frame):
         self.Destroy()
 
     def OnButtonOpenPlotter(self, event):  # グラフ表示
+        self.plotterapp = PyQt5.QtWidgets.QApplication([])
+        # self.pyqt_exection
+        # plotterapp.exec()
+
         if not self.PlotterOpened:
             self.PlotterOpened = True
-            t_pyqt = threading.Thread(target=self.pyqt_exection)
-            t_pyqt.start()
 
-    def pyqt_exection(self):
-        self.win = pg.GraphicsLayoutWidget()
-        self.win.resize(1000, self.emgdata.SensorModulenum*150)
+            self.threadpool = QtCore.QThreadPool()
+            worker = self.Plotter(self.emgdata)
+            self.threadpool.start(worker)
 
-        self.win.show()
+            # t_pyqt = QtCore.QThread()
+            # t_pyqt.started.connect(self.pyqt_exection)
+            # # t_pyqt.finished.connect(self.plotterapp.exit)
+            # # t_pyqt = threading.Thread(target=self.pyqt_exection)
+            # t_pyqt.start()
 
-        self.curve_list = []
-        # set plot regions
-        for i in range(self.emgdata.SensorModulenum):
-            title = "real-time plot "+str(i+1)
-            p = self.win.addPlot(title=title, col=0, row=i)
-            p.setYRange(0, 2)
-            p.setXRange(0, 3000)
-            self.curve_list.append(p.plot(pen='c'))
+    class Plotter(QtCore.QRunnable):
+        def __init__(self, emgdata):
+            super().__init__()
+            self.emgdata = emgdata
 
-        for i, curve in enumerate(self.curve_list):
-            curve.getViewBox().enableAutoRange(axis='y', enable=True)
-            try:
-                curve.setData(
-                    self.emgdata.emg_datalist[i].emg_data_sequence)
-            except:
-                pass
+        def run(self):
+            print("a")
+            self.win = pg.GraphicsLayoutWidget()
 
-        pg.setConfigOptions(antialias=True)
+            self.win.resize(1000, self.emgdata.SensorModulenum*150)
+            print("b")
 
-        fps = 120
-        timer = QtCore.QTimer()
-        timer.timeout.connect(self.plot_emgdata)
-        timer.start(int(1/fps * 1000))
+            # self.win.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
+            # print("ab")
 
-        if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
-            PyQt5.QtWidgets.QApplication.instance().exec_()
+            self.win.show()
+            print("c")
 
-        self.PlotterOpened = False
+            self.curve_list = []
+            # set plot regions
+            for i in range(self.emgdata.SensorModulenum):
+                title = "real-time plot "+str(i+1)
+                p = self.win.addPlot(title=title, col=0, row=i)
+                p.setYRange(0, 2)
+                p.setXRange(0, 3000)
+                self.curve_list.append(p.plot(pen='c'))
+            print("d")
 
-    def plot_emgdata(self):
-        for i, curve in enumerate(self.curve_list):
-            try:
-                curve.setData(
-                    self.emgdata.emg_datalist[i].emg_data_sequence)
-            except:
-                pass
+            for i, curve in enumerate(self.curve_list):
+                curve.getViewBox().enableAutoRange(axis='y', enable=True)
+                try:
+                    curve.setData(
+                        self.emgdata.emg_datalist[i].emg_data_sequence)
+                except:
+                    pass
+            print("e")
+
+            pg.setConfigOptions(antialias=True)
+            print("f")
+
+            fps = 120
+            timer = QtCore.QTimer()
+            timer.timeout.connect(self.plot_emgdata)
+            timer.start(int(1/fps * 1000))
+            print("g")
+
+            # if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
+            #     PyQt5.QtWidgets.QApplication.instance().exec()
+
+            print("h")
+            self.PlotterOpened = False
+            self.plotterapp.exec()
+
+        def plot_emgdata(self):
+            for i, curve in enumerate(self.curve_list):
+                try:
+                    curve.setData(
+                        self.emgdata.emg_datalist[i].emg_data_sequence)
+                except:
+                    pass
 
 # end of class MyFrame
 
@@ -545,50 +599,8 @@ class MyApp(wx.App):
         thread_rs = threading.Thread(target=self.mediapipe_render, daemon=True)
         thread_rs.start()
 
-        # self.pyqt_exection()
-
         return True
-
-    # def pyqt_exection(self):
-    #     self.win = pg.GraphicsLayoutWidget()
-    #     self.win.resize(1000, self.frame.emgdata.SensorModulenum*150)
-    #     self.win.show()
-
-    #     self.curve_list = []
-    #     # set plot regions
-    #     for i in range(self.frame.emgdata.SensorModulenum):
-    #         title = "real-time plot "+str(i+1)
-    #         p = self.win.addPlot(title=title, col=0, row=i)
-    #         p.setYRange(0, 2)
-    #         p.setXRange(0, 3000)
-    #         self.curve_list.append(p.plot(pen='c'))
-
-    #     for i, curve in enumerate(self.curve_list):
-    #         curve.getViewBox().enableAutoRange(axis='y', enable=True)
-    #         try:
-    #             curve.setData(
-    #                 self.frame.emgdata.emg_datalist[i].emg_data_sequence)
-    #         except:
-    #             pass
-
-    #     pg.setConfigOptions(antialias=True)
-
-    #     fps = 120
-    #     timer = QtCore.QTimer()
-    #     timer.timeout.connect(self.plot_emgdata)
-    #     timer.start(int(1/fps * 1000))
-
-    #     if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
-    #         PyQt5.QtWidgets.QApplication.instance().exec_()
-
-    # def plot_emgdata(self):
-    #     for i, curve in enumerate(self.curve_list):
-    #         try:
-    #             curve.setData(
-    #                 self.frame.emgdata.emg_datalist[i].emg_data_sequence)
-    #         except:
-    #             pass
-
+    
     def render_ids_3d(self, render_image, poselandmarks, data_list_past):
         log_r = np.math.log(
             abs(self.frame.emgdata.emg_datalist[0].emg_data)+1.0, 1.1)
@@ -665,6 +677,9 @@ class MyApp(wx.App):
                 min_tracking_confidence=0.5) as pose:
             while cap.isOpened():
                 success, image = cap.read()
+
+                # if success:
+                #     print("sss")
 
                 data_list_past = []
                 for data in self.frame.emgdata.emg_datalist:
