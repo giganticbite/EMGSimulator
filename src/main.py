@@ -36,6 +36,7 @@ BLACK = wx.Colour(0, 0, 0)
 RED = wx.Colour(255, 0, 0)
 BLUE = wx.Colour(0, 0, 255)
 
+
 class LogText(object):
 
     #
@@ -245,7 +246,7 @@ class MyFrame(wx.Frame):
         sizer_4.Add(sizer_receive_checker, flag=wx.ALIGN_CENTER | wx.TOP)
         sizer_4.Add((100, 20), 2, 0, 0)
 
-        self.button_Plotter = wx.Button(self.panel, wx.ID_ANY, u"グラフ表示")
+        self.button_Plotter = wx.Button(self.panel, wx.ID_ANY, u"---グラフ表示---")
         sizer_4.Add(self.button_Plotter, 1, wx.ALL, 4)
 
         self.button_Exit = wx.Button(self.panel, wx.ID_ANY, u"終了")
@@ -411,7 +412,6 @@ class MyFrame(wx.Frame):
                                     self.updateReceiveChecker(
                                         status_sid, WHITE)
 
-
                         if 'dat' in resultDic:
                             dat = resultDic['dat']
 
@@ -509,40 +509,41 @@ class MyFrame(wx.Frame):
         self.Destroy()
 
     def OnButtonOpenPlotter(self, event):  # グラフ表示
-        self.plotterapp = PyQt5.QtWidgets.QApplication([])
-        # self.pyqt_exection
-        # plotterapp.exec()
 
         if not self.PlotterOpened:
+            self.app = PyQt5.QtGui.QApplication(sys.argv)
+
             self.PlotterOpened = True
 
-            self.threadpool = QtCore.QThreadPool()
-            worker = self.Plotter(self.emgdata)
-            self.threadpool.start(worker)
+            self.worker = self.Plotter(self.emgdata)
+            self.button_Plotter.SetLabel("グラフ再読み込み")
 
-            # t_pyqt = QtCore.QThread()
-            # t_pyqt.started.connect(self.pyqt_exection)
-            # # t_pyqt.finished.connect(self.plotterapp.exit)
-            # # t_pyqt = threading.Thread(target=self.pyqt_exection)
-            # t_pyqt.start()
+            fps = 120
+            timer = QtCore.QTimer()
+            timer.timeout.connect(self.plot_emgdata)
+            timer.start(int(1/fps * 1000))
 
-    class Plotter(QtCore.QRunnable):
+            self.app.exec()
+
+        else:
+            self.worker.set_window_style()
+
+    def plot_emgdata(self):
+        for i, curve in enumerate(self.worker.curve_list):
+            curve.setData(
+                self.emgdata.emg_datalist[i].emg_data_sequence)
+        self.worker.win.show()
+
+    class Plotter(PyQt5.QtGui.QWidget):
         def __init__(self, emgdata):
             super().__init__()
             self.emgdata = emgdata
+            self.initUI()
 
-        def run(self):
-            print("a")
-            self.win = pg.GraphicsLayoutWidget()
+        def set_window_style(self):
+            self.win.clear()
 
             self.win.resize(1000, self.emgdata.SensorModulenum*150)
-            print("b")
-
-            # self.win.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
-            # print("ab")
-
-            self.win.show()
-            print("c")
 
             self.curve_list = []
             # set plot regions
@@ -552,7 +553,6 @@ class MyFrame(wx.Frame):
                 p.setYRange(0, 2)
                 p.setXRange(0, 3000)
                 self.curve_list.append(p.plot(pen='c'))
-            print("d")
 
             for i, curve in enumerate(self.curve_list):
                 curve.getViewBox().enableAutoRange(axis='y', enable=True)
@@ -561,31 +561,15 @@ class MyFrame(wx.Frame):
                         self.emgdata.emg_datalist[i].emg_data_sequence)
                 except:
                     pass
-            print("e")
+
+            self.win.show()
+
+        def initUI(self):
+            self.win = pg.GraphicsLayoutWidget()
+
+            self.set_window_style()
 
             pg.setConfigOptions(antialias=True)
-            print("f")
-
-            fps = 120
-            timer = QtCore.QTimer()
-            timer.timeout.connect(self.plot_emgdata)
-            timer.start(int(1/fps * 1000))
-            print("g")
-
-            # if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
-            #     PyQt5.QtWidgets.QApplication.instance().exec()
-
-            print("h")
-            self.PlotterOpened = False
-            self.plotterapp.exec()
-
-        def plot_emgdata(self):
-            for i, curve in enumerate(self.curve_list):
-                try:
-                    curve.setData(
-                        self.emgdata.emg_datalist[i].emg_data_sequence)
-                except:
-                    pass
 
 # end of class MyFrame
 
@@ -600,7 +584,7 @@ class MyApp(wx.App):
         thread_rs.start()
 
         return True
-    
+
     def render_ids_3d(self, render_image, poselandmarks, data_list_past):
         log_r = np.math.log(
             abs(self.frame.emgdata.emg_datalist[0].emg_data)+1.0, 1.1)
